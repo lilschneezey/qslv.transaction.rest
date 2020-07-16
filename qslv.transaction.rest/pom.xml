@@ -8,7 +8,7 @@
 		<version>2.2.2.RELEASE</version>
 		<relativePath /> <!-- lookup parent from repository -->
 	</parent>
-	<groupId>com.bac</groupId>
+	<groupId>io.schneezey</groupId>
 	<artifactId>qslv.transaction.rest</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
 	<name>Transaction.Rest</name>
@@ -74,12 +74,12 @@
 			<artifactId>jackson-core</artifactId>
 		</dependency>
 		<dependency>
-			<groupId>com.bac</groupId>
+			<groupId>io.schneezey</groupId>
 			<artifactId>qslv.common</artifactId>
 			<version>0.0.1-SNAPSHOT</version>
 		</dependency>
 		<dependency>
-			<groupId>com.bac</groupId>
+			<groupId>io.schneezey</groupId>
 			<artifactId>qslv.interface</artifactId>
 			<version>0.0.1-SNAPSHOT</version>
 		</dependency>
