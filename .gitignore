@@ -5,6 +5,7 @@
 .project
 .metadata
 .classpath
+.factorypath
 .settings/
 target/
 
