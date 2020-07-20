@@ -6,6 +6,7 @@
 .metadata
 .classpath
 .settings/
+target/
 
 # Log file
 *.log
