@@ -5,7 +5,9 @@
 .project
 .metadata
 .classpath
+.factorypath
 .settings/
+target/
 
 # Log file
 *.log
