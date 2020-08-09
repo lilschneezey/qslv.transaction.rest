@@ -2,7 +2,7 @@ metadata:
   name: bs-${project.artifactId}
 data:
   application.properties: |
-    spring.datasource.url=jdbc:postgresql://local-cockroach-db.qslv-transaction-rest.svc:26257/deposits?sslmode=disable
+    spring.datasource.url=jdbc:postgresql://cockroach.quick-silver.svc:26257/deposits?sslmode=disable
     spring.jpa.hibernate.ddl-auto=update
     spring.datasource.username=root
     qslv.aitid=12347

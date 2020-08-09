@@ -5,6 +5,7 @@ import static org.mockito.Mockito.*;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.List;
 import java.util.UUID;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -22,17 +23,17 @@ import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.web.server.ResponseStatusException;
 
 import qslv.transaction.resource.TransactionResource;
-import qslv.transaction.rest.TransactionDAO;
+import qslv.transaction.rest.JdbcDao;
 
 @ExtendWith(MockitoExtension.class)
-public class UnitTransactionDAOTest {
+public class UnitJdbcDAOTest {
 	@Mock
 	JdbcTemplate jdbcTemplate; 
-	TransactionDAO dao = new TransactionDAO();
+	JdbcDao jdbcDao = new JdbcDao();
 	
 	@BeforeEach
 	public void setup() {
-		dao.setJdbcTemplate(jdbcTemplate);		
+		jdbcDao.setJdbcTemplate(jdbcTemplate);		
 	}
 	//--------------------------
 	// selectBalanceForUpdate
@@ -41,16 +42,16 @@ public class UnitTransactionDAOTest {
 	public void testSelectBalanceForUpdate() {		
 		Long result = 1001L;
 		
-		when(jdbcTemplate.queryForObject( eq(TransactionDAO.getBalance_sql) ,eq(Long.class), any())).thenReturn(result);
-		assertEquals(dao.selectBalanceForUpdate("12345678012"),result) ;
+		when(jdbcTemplate.queryForObject( eq(JdbcDao.getBalance_sql) ,eq(Long.class), any())).thenReturn(result);
+		assertEquals(jdbcDao.selectBalanceForUpdate("12345678012"),result) ;
 		verify(jdbcTemplate).queryForObject(any(),  eq(Long.class), any());
 	}
 	@Test
 	public void testSelectBalanceForUpdate_throws() {
 		EmptyResultDataAccessException ex = new EmptyResultDataAccessException(1);
 		
-		when(jdbcTemplate.queryForObject( eq(TransactionDAO.getBalance_sql) ,eq(Long.class), any())).thenThrow(ex);
-		assertEquals(dao.selectBalanceForUpdate("12345678012"),0L) ;
+		when(jdbcTemplate.queryForObject( eq(JdbcDao.getBalance_sql) ,eq(Long.class), any())).thenThrow(ex);
+		assertEquals(jdbcDao.selectBalanceForUpdate("12345678012"),0L) ;
 		verify(jdbcTemplate).queryForObject(any(),  eq(Long.class), any());
 	}
 
@@ -67,7 +68,7 @@ public class UnitTransactionDAOTest {
 			keyHolder.getKeyList().add(Collections.singletonMap("transaction_uuid", test_uuid));
 			return null;
 		}).when(jdbcTemplate).update( any(PreparedStatementCreator.class), any(KeyHolder.class) );
-		dao.insertTransaction(resource);
+		jdbcDao.insertTransaction(resource);
 		assertEquals(resource.getTransactionUuid(), test_uuid) ;
 	}
 	@Test
@@ -79,7 +80,7 @@ public class UnitTransactionDAOTest {
 			keyHolder.getKeyList().add(Collections.singletonMap("transaction_uuid", "String"));
 			return null;
 		}).when(jdbcTemplate).update( any(PreparedStatementCreator.class), any(KeyHolder.class) );
-		ResponseStatusException ex = assertThrows(ResponseStatusException.class, ()-> { dao.insertTransaction(resource); } );
+		ResponseStatusException ex = assertThrows(ResponseStatusException.class, ()-> { jdbcDao.insertTransaction(resource); } );
 		assert(ex.getStatus() == HttpStatus.INTERNAL_SERVER_ERROR);
 	}
 	@Test
@@ -89,7 +90,7 @@ public class UnitTransactionDAOTest {
 		doAnswer(invocation -> {
 			return null;
 		}).when(jdbcTemplate).update( any(PreparedStatementCreator.class), any(KeyHolder.class) );
-		ResponseStatusException ex = assertThrows(ResponseStatusException.class, ()-> { dao.insertTransaction(resource); } );
+		ResponseStatusException ex = assertThrows(ResponseStatusException.class, ()-> { jdbcDao.insertTransaction(resource); } );
 		assert(ex.getStatus() == HttpStatus.INTERNAL_SERVER_ERROR);
 	}
 	
@@ -106,7 +107,7 @@ public class UnitTransactionDAOTest {
 			keyHolder.getKeyList().add(Collections.singletonMap("transaction_uuid", test_uuid));
 			return null;
 		}).when(jdbcTemplate).update( any(PreparedStatementCreator.class), any(KeyHolder.class) );
-		dao.insertReservation(resource);
+		jdbcDao.insertCommitOrCancel(resource);
 		assertEquals(resource.getTransactionUuid(), test_uuid) ;
 	}
 	@Test
@@ -118,7 +119,7 @@ public class UnitTransactionDAOTest {
 			keyHolder.getKeyList().add(Collections.singletonMap("transaction_uuid", "String"));
 			return null;
 		}).when(jdbcTemplate).update( any(PreparedStatementCreator.class), any(KeyHolder.class) );
-		ResponseStatusException ex = assertThrows(ResponseStatusException.class, ()-> { dao.insertReservation(resource); } );
+		ResponseStatusException ex = assertThrows(ResponseStatusException.class, ()-> { jdbcDao.insertCommitOrCancel(resource); } );
 		assert(ex.getStatus() == HttpStatus.INTERNAL_SERVER_ERROR);
 	}
 	@Test
@@ -128,7 +129,7 @@ public class UnitTransactionDAOTest {
 		doAnswer(invocation -> {
 			return null;
 		}).when(jdbcTemplate).update( any(PreparedStatementCreator.class), any(KeyHolder.class) );
-		ResponseStatusException ex = assertThrows(ResponseStatusException.class, ()-> { dao.insertReservation(resource); } );
+		ResponseStatusException ex = assertThrows(ResponseStatusException.class, ()-> { jdbcDao.insertCommitOrCancel(resource); } );
 		assert(ex.getStatus() == HttpStatus.INTERNAL_SERVER_ERROR);
 	}
 	
@@ -138,9 +139,9 @@ public class UnitTransactionDAOTest {
 	@Test
 	public void testUpsertBalance() {		
 		when(jdbcTemplate.update( any(String.class), any(String.class), any(Long.class) )).thenReturn(1).thenReturn(0);
-		dao.upsertBalance("Account",1L);
+		jdbcDao.upsertBalance("Account",1L);
 		verify(jdbcTemplate).update( any(String.class), any(String.class), any(Long.class) );
-		ResponseStatusException ex = assertThrows(ResponseStatusException.class, ()->{dao.upsertBalance("Account", 1L);});
+		ResponseStatusException ex = assertThrows(ResponseStatusException.class, ()->{jdbcDao.upsertBalance("Account", 1L);});
 		assert(ex.getStatus() == HttpStatus.INTERNAL_SERVER_ERROR);
 	}
 	
@@ -150,9 +151,9 @@ public class UnitTransactionDAOTest {
 	@Test
 	public void testVerifyReservationOpen() {		
 		when(jdbcTemplate.queryForObject( any(String.class), any(Object[].class), eq(Long.class) ) ).thenReturn(0L).thenReturn(1L);
-		dao.verifyReservationOpen(UUID.randomUUID());
+		jdbcDao.verifyReservationOpen(UUID.randomUUID());
 		verify(jdbcTemplate).queryForObject( any(String.class), any(Object[].class), eq(Long.class) );
-		ResponseStatusException ex = assertThrows(ResponseStatusException.class, ()->{dao.verifyReservationOpen(UUID.randomUUID());});
+		ResponseStatusException ex = assertThrows(ResponseStatusException.class, ()->{jdbcDao.verifyReservationOpen(UUID.randomUUID());});
 		assert(ex.getStatus() == HttpStatus.CONFLICT);
 	}
 	
@@ -168,11 +169,11 @@ public class UnitTransactionDAOTest {
 			.thenReturn(Collections.singletonList(resource))
 			.thenReturn(new ArrayList<TransactionResource>());
 		
-		TransactionResource result = dao.findReservation(UUID.randomUUID());
+		TransactionResource result = jdbcDao.findReservation(UUID.randomUUID());
 		verify(jdbcTemplate).query( any(String.class), ArgumentMatchers.<RowMapper<TransactionResource>>any(), any(UUID.class) );
 		assert(result.getTransactionUuid().equals(resource.getTransactionUuid()));
 
-		ResponseStatusException ex = assertThrows(ResponseStatusException.class, ()->{dao.findReservation(UUID.randomUUID());});
+		ResponseStatusException ex = assertThrows(ResponseStatusException.class, ()->{jdbcDao.findReservation(UUID.randomUUID());});
 		assert(ex.getStatus() == HttpStatus.NOT_FOUND);
 	}
 	
@@ -188,11 +189,11 @@ public class UnitTransactionDAOTest {
 			.thenReturn(Collections.singletonList(resource))
 			.thenReturn(new ArrayList<TransactionResource>());
 		
-		TransactionResource result = dao.findTransaction(UUID.randomUUID());
+		TransactionResource result = jdbcDao.findTransaction(UUID.randomUUID());
 		verify(jdbcTemplate).query( any(String.class), ArgumentMatchers.<RowMapper<TransactionResource>>any(), any(UUID.class) );
 		assert(result.getTransactionUuid().equals(resource.getTransactionUuid()));
 
-		ResponseStatusException ex = assertThrows(ResponseStatusException.class, ()->{dao.findTransaction(UUID.randomUUID());});
+		ResponseStatusException ex = assertThrows(ResponseStatusException.class, ()->{jdbcDao.findTransaction(UUID.randomUUID());});
 		assert(ex.getStatus() == HttpStatus.NOT_FOUND);
 	}
 	
@@ -204,16 +205,35 @@ public class UnitTransactionDAOTest {
 		TransactionResource resource = new TransactionResource();
 		resource.setTransactionUuid(UUID.randomUUID());
 		
-		when(jdbcTemplate.query( any(String.class), ArgumentMatchers.<RowMapper<TransactionResource>>any(), any(UUID.class) ) )
+		when(jdbcTemplate.query( any(String.class), ArgumentMatchers.<RowMapper<TransactionResource>>any(), any(UUID.class), anyString() ) )
 			.thenReturn(Collections.singletonList(resource))
 			.thenReturn(new ArrayList<TransactionResource>());
 		
-		TransactionResource result = dao.checkIdempotency(UUID.randomUUID());
-		verify(jdbcTemplate).query( any(String.class), ArgumentMatchers.<RowMapper<TransactionResource>>any(), any(UUID.class) );
-		assert(result.getTransactionUuid().equals(resource.getTransactionUuid()));
+		TransactionResource result = jdbcDao.checkIdempotency(UUID.randomUUID(), "TEST_ACCOUNT");
+		verify(jdbcTemplate).query( any(String.class), ArgumentMatchers.<RowMapper<TransactionResource>>any(), any(UUID.class), anyString() );
+		assertNotNull(result);
+		assertEquals(resource.getTransactionUuid(), result.getTransactionUuid());
 
-		result = dao.checkIdempotency(UUID.randomUUID());
-		verify(jdbcTemplate, times(2)).query( any(String.class), ArgumentMatchers.<RowMapper<TransactionResource>>any(), any(UUID.class) );
-		assert(result == null);
+		result = jdbcDao.checkIdempotency(UUID.randomUUID(), "TEST_ACCOUNT");
+		verify(jdbcTemplate, times(2)).query( any(String.class), ArgumentMatchers.<RowMapper<TransactionResource>>any(), any(UUID.class), anyString() );
+		assertNull( result);
+	}
+	//--------------------------
+	// checkIdempotency
+	//--------------------------
+	@Test
+	public void checkMultiIdempotency() {	
+		TransactionResource resource = new TransactionResource();
+		resource.setTransactionUuid(UUID.randomUUID());
+		
+		when(jdbcTemplate.query( any(String.class), ArgumentMatchers.<RowMapper<TransactionResource>>any(), any(UUID.class), anyString() ) )
+			.thenReturn(Collections.singletonList(resource));
+		
+		List<TransactionResource> result = jdbcDao.checkMultiIdempotency(UUID.randomUUID(), "TEST_ACCOUNT");
+		verify(jdbcTemplate).query( any(String.class), ArgumentMatchers.<RowMapper<TransactionResource>>any(), any(UUID.class), anyString() );
+		assertNotNull(result);
+		assertSame(resource, result.get(0));
+
+		verify(jdbcTemplate, times(1)).query( any(String.class), ArgumentMatchers.<RowMapper<TransactionResource>>any(), any(UUID.class), anyString() );
 	}
 }

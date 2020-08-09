@@ -8,6 +8,8 @@ spec:
               mountPath: "/deployments/config"
               readOnly: true
           env:
+            - name: SPRING_PROFILES_ACTIVE
+              value: openshift
             - name: SPRING_DATASOURCE_USER
               valueFrom:
                 secretKeyRef:
@@ -37,3 +39,4 @@ spec:
             items:
             - key: application.properties
               path: application.properties
+              

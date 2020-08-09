@@ -1,7 +1,5 @@
 package qslv.transaction.rest;
 
-import java.util.Collections;
-import java.util.List;
 import java.util.Map;
 
 import org.slf4j.Logger;
@@ -13,14 +11,16 @@ import org.springframework.web.server.ResponseStatusException;
 
 import qslv.transaction.request.CancelReservationRequest;
 import qslv.transaction.request.CommitReservationRequest;
+import qslv.transaction.request.ReservationRequest;
 import qslv.transaction.request.TransactionRequest;
 import qslv.transaction.request.TransactionSearchRequest;
-import qslv.transaction.resource.TransactionResource;
+import qslv.transaction.request.TransferAndTransactRequest;
 import qslv.transaction.response.CancelReservationResponse;
 import qslv.transaction.response.CommitReservationResponse;
 import qslv.transaction.response.ReservationResponse;
 import qslv.transaction.response.TransactionResponse;
 import qslv.transaction.response.TransactionSearchResponse;
+import qslv.transaction.response.TransferAndTransactResponse;
 import qslv.common.TimedResponse;
 import qslv.common.TraceableRequest;
 import qslv.util.LogRequestTracingData;
@@ -108,6 +108,10 @@ public class TransactionController {
 
 		validateHeaders(headers);
 		validateTransactionRequest(request);
+		if (false == headers.get(TraceableRequest.ACCEPT_VERSION).equals(TransactionRequest.VERSION_1_0)) {
+			log.error("postTransaction, Invalid version {}",headers.get(TraceableRequest.ACCEPT_VERSION));
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid version "+headers.get(TraceableRequest.ACCEPT_VERSION));
+		}
 		TransactionResponse response = service.createTransaction(request);
 
 		return new TimedResponse<TransactionResponse>(response);
@@ -119,10 +123,15 @@ public class TransactionController {
 	@LogRequestTracingData(value="POST/Reservation", ait = "33333")
 	@ServiceElapsedTimeSLI(value="POST/Reservation", injectResponse = true, ait = "44444")
 	public TimedResponse<ReservationResponse> postReservation(@RequestHeader Map<String, String> headers,
-			@RequestBody TransactionRequest request) {
+			@RequestBody ReservationRequest request) {
 
 		validateHeaders(headers);
-		validateTransactionRequest(request);
+		validateReservationRequest(request);
+		if (false == headers.get(TraceableRequest.ACCEPT_VERSION).equals(ReservationRequest.VERSION_1_0)) {
+			log.error("postReservation, Invalid version {}",headers.get(TraceableRequest.ACCEPT_VERSION));
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid version "+headers.get(TraceableRequest.ACCEPT_VERSION));
+		}
+
 		ReservationResponse response = service.createReservation(request);
 
 		return new TimedResponse<ReservationResponse>(response);
@@ -138,6 +147,10 @@ public class TransactionController {
 		
 		validateHeaders(headers);
 		validateCommitReservationRequest(request);
+		if (false == headers.get(TraceableRequest.ACCEPT_VERSION).equals(CommitReservationRequest.VERSION_1_0)) {
+			log.error("postCommitReservation, Invalid version {}",headers.get(TraceableRequest.ACCEPT_VERSION));
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid version "+headers.get(TraceableRequest.ACCEPT_VERSION));
+		}
 		
 		CommitReservationResponse response = service.commitReservation(request);
 
@@ -154,7 +167,10 @@ public class TransactionController {
 
 		validateHeaders(headers);
 		validateCancelReservationRequest(request);
-
+		if (false == headers.get(TraceableRequest.ACCEPT_VERSION).equals(CancelReservationRequest.VERSION_1_0)) {
+			log.error("postCancelReservation, Invalid version {}",headers.get(TraceableRequest.ACCEPT_VERSION));
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid version "+headers.get(TraceableRequest.ACCEPT_VERSION));
+		}
 		CancelReservationResponse response = service.cancelReservation(request);
 
 		return new TimedResponse<CancelReservationResponse>(response);
@@ -165,19 +181,19 @@ public class TransactionController {
 	@ResponseBody
 	@LogRequestTracingData(value="POST/TransferAndTransact", ait = "33333")
 	@ServiceElapsedTimeSLI(value="POST/TransferAndTransact", injectResponse = true, ait = "44444")
-	public TimedResponse<List<TransactionResource>> postTransferAndTransact(@RequestHeader Map<String, String> headers,
-			@RequestBody TransactionRequest request) {
+	public TimedResponse<TransferAndTransactResponse> postTransferAndTransact(@RequestHeader Map<String, String> headers,
+			@RequestBody TransferAndTransactRequest request) {
+		
 		validateHeaders(headers);
-		validateTransactionRequest(request);
+		validateTransferAndTransactRequest(request);
+		if (false == headers.get(TraceableRequest.ACCEPT_VERSION).equals(TransferAndTransactRequest.VERSION_1_0)) {
+			log.error("postCancelReservation, Invalid version {}",headers.get(TraceableRequest.ACCEPT_VERSION));
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid version "+headers.get(TraceableRequest.ACCEPT_VERSION));
+		}
 
-		/*
-		 * This needs to be fleshed out for the use case 
-		 * 1. Reservation rejected on Account, but Reserved on OD account
-		 * 2. Settlement transfers money from Reserved Account, to allow the transaction on original account.
-		 * 3. The two transactions (Transfer, and Transaction) need to be added in a single database transaction 
-		 */
+		TransferAndTransactResponse response = service.transferAndTransact(request);
 
-		return new TimedResponse<List<TransactionResource>>(0, Collections.emptyList());
+		return new TimedResponse<TransferAndTransactResponse>(response);
 	}
 	@GetMapping("/Transaction")
 	@ResponseStatus(HttpStatus.OK)
@@ -188,6 +204,10 @@ public class TransactionController {
 			@RequestBody TransactionSearchRequest request) {
 		validateHeaders(headers);
 		validateTransactionSearchRequest(request);
+		if (false == headers.get(TraceableRequest.ACCEPT_VERSION).equals(TransactionSearchRequest.VERSION_1_0)) {
+			log.error("getTransaction, Invalid version {}",headers.get(TraceableRequest.ACCEPT_VERSION));
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid version "+headers.get(TraceableRequest.ACCEPT_VERSION));
+		}
 		
 		TransactionSearchResponse response = service.findTransaction(request);
 		
@@ -195,7 +215,7 @@ public class TransactionController {
 	}
 
 	private void validateTransactionRequest(TransactionRequest request) {
-		log.debug("validateTransactionRequest ENTRY");
+		log.trace("validateTransactionRequest ENTRY");
 		if (request.getRequestUuid() == null) {
 			log.error("controller.validateTransactionRequest, Malformed Request. Missing request_uuid");
 			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Missing request_uuid");
@@ -217,8 +237,31 @@ public class TransactionController {
 		}
 	}
 
+	private void validateReservationRequest(ReservationRequest request) {
+		log.trace("validateReservationRequest ENTRY");
+		if (request.getRequestUuid() == null) {
+			log.error("controller.validateTransactionRequest, Malformed Request. Missing request_uuid");
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Missing request_uuid");
+		}
+
+		if (request.getAccountNumber() == null || request.getAccountNumber().length() <= 1) {
+			log.error("controller.validateTransactionRequest Malformed Request. Missing account_id");
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Missing account_id");
+		}
+
+		if (request.getTransactionMetaDataJson() == null || request.getTransactionMetaDataJson().length() <= 1) {
+			log.error("controller.validateTransactionRequest Malformed Request. Missing transactionMetaData_json");
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Missing transactionMetaData_json");
+		}
+		
+		if (request.getTransactionAmount() == 0) {
+			log.error("controller.validateTransactionRequest Malformed Request. Transaction Amount must not be zero(0).");
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Transaction Amount must not be zero(0).");
+		}
+	}
+	
 	private void validateCancelReservationRequest(CancelReservationRequest request) {
-		log.debug("validateReservationRequest ENTRY");
+		log.trace("validateReservationRequest ENTRY");
 		if (request.getRequestUuid() == null) {
 			log.error("controller.validateReservationRequest Malformed Request. Missing request_uuid");
 			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Missing request_uuid");
@@ -236,7 +279,7 @@ public class TransactionController {
 	}
 	
 	private void validateCommitReservationRequest(CommitReservationRequest request) {
-		log.debug("validateReservationRequest ENTRY");
+		log.trace("validateReservationRequest ENTRY");
 		if (request.getRequestUuid() == null) {
 			log.error("controller.validateReservationRequest Malformed Request. Missing request_uuid");
 			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Missing request_uuid");
@@ -256,9 +299,48 @@ public class TransactionController {
 			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Transaction Amount must not be zero(0).");
 		}
 	}
-
+	
+	private void validateTransferAndTransactRequest(TransferAndTransactRequest request) {
+		log.trace("validateTransferAndTransactRequest ENTRY");
+		
+		if (request.getRequestUuid() == null) {
+			log.error("controller.validateTransferAndTransactRequest Malformed Request. Missing requestUuid");
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Missing requestUuid");
+		}	
+		if (request.getTransactionRequest() == null) {
+			log.error("controller.validateTransferAndTransactRequest Malformed Request. Missing Transaction Request");
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Missing Transaction Request");
+		}
+		if (request.getTransferReservation() == null) {
+			log.error("controller.validateTransferAndTransactRequest Malformed Request. Missing Transfer Reservation");
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Missing Transfer Reservation");
+		}
+		if (request.getTransferReservation().getTransactionUuid() == null) {
+			log.error("controller.validateTransferAndTransactRequest Malformed Request. Missing Transfer Reservation UUID");
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Missing Transfer Reservation UUID");
+		}
+		if (request.getTransferReservation().getTransactionAmount() >= 0L) {
+			log.error("controller.validateTransferAndTransactRequest Malformed Request. Transfer Reservation must LT Zero.");
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Transfer Reservation must LT Zero.");
+		}
+		if (request.getTransactionRequest().getAccountNumber() == null 
+				|| request.getTransactionRequest().getAccountNumber().length() <= 1) {
+			log.error("controller.validateTransactionRequest Malformed Request. Missing accountNumber");
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Missing accountNumber");
+		}
+		if (request.getTransactionRequest().getTransactionMetaDataJson() == null 
+				|| request.getTransactionRequest().getTransactionMetaDataJson().length() <= 1) {
+			log.error("controller.validateTransactionRequest Malformed Request. Missing transactionMetaDataJson");
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Missing transactionMetaDataJson");
+		}
+		if (request.getTransactionRequest().getTransactionAmount() >= 0L) {
+			log.error("controller.validateTransferAndTransactRequest Malformed Request. Transaction must LT Zero.");
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Transaction must LT Zero.");
+		}
+	}
+	
 	private void validateTransactionSearchRequest(TransactionSearchRequest request) {
-		log.debug("validateHeaders ENTRY");
+		log.trace("validateHeaders ENTRY");
 		int count = 0;
 		if (request.getTransactionUuid() == null) count++;
 		if (request.getReservationUuid() == null) count++;
@@ -270,19 +352,23 @@ public class TransactionController {
 	}
 
 	private void validateHeaders(Map<String, String> headerMap) {
-		log.debug("validateHeaders ENTRY");
+		log.trace("validateHeaders ENTRY");
 
 		if (headerMap.get(TraceableRequest.AIT_ID) == null) {
-			log.error("controller.validateHeaders, Malformed Request. Missing header variable AIT-ID");
-			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Missing header variable AIT-ID");
+			log.error("controller.validateHeaders, Malformed Request. Missing header variable {}", TraceableRequest.AIT_ID);
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Missing header variable "+TraceableRequest.AIT_ID);
 		}
 		if (headerMap.get(TraceableRequest.BUSINESS_TAXONOMY_ID) == null) {
-			log.error("controller.validateHeaders, Malformed Request. Missing header variable Business-Taxonomy-ID");
-			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Missing header variable Business-Taxonomy-ID");
+			log.error("controller.validateHeaders, Malformed Request. Missing header variable {}",TraceableRequest.BUSINESS_TAXONOMY_ID);
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Missing header variable "+TraceableRequest.BUSINESS_TAXONOMY_ID);
 		}
 		if (headerMap.get(TraceableRequest.CORRELATION_ID) == null) {
-			log.error("controller.validateHeaders, Malformed Request. Missing header variable Correlation-ID");
-			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Missing header variable Correlation-ID");
+			log.error("controller.validateHeaders, Malformed Request. Missing header variable {}",TraceableRequest.CORRELATION_ID);
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Missing header variable "+TraceableRequest.CORRELATION_ID);
+		}
+		if (headerMap.get(TraceableRequest.ACCEPT_VERSION) == null) {
+			log.error("controller.validateHeaders, Malformed Request. Missing header variable {}",TraceableRequest.ACCEPT_VERSION);
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Missing header variable "+TraceableRequest.ACCEPT_VERSION);
 		}
 	}
 

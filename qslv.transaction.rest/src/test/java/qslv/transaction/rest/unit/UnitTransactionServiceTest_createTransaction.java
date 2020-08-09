@@ -21,19 +21,19 @@ import org.springframework.web.server.ResponseStatusException;
 import qslv.transaction.request.TransactionRequest;
 import qslv.transaction.resource.TransactionResource;
 import qslv.transaction.response.TransactionResponse;
-import qslv.transaction.rest.TransactionDAO;
+import qslv.transaction.rest.JdbcDao;
 import qslv.transaction.rest.TransactionService;
 
 @ExtendWith(MockitoExtension.class)
 @RunWith(JUnitPlatform.class)
 class UnitTransactionServiceTest_createTransaction {
 	@Mock 
-	TransactionDAO dao;
+	JdbcDao dao;
 	TransactionService service = new TransactionService();
 	
 	@BeforeEach
 	public void setup() {
-		service.setDao(dao);
+		service.setJdbcDao(dao);
 	}
 	
 	//-------------------------------------
@@ -45,14 +45,15 @@ class UnitTransactionServiceTest_createTransaction {
 		
 		TransactionResource setupResult = new TransactionResource();
 		setupResult.setTransactionUuid(UUID.randomUUID());
+		setupResult.setTransactionTypeCode(TransactionResource.NORMAL);
 		TransactionResponse result;
 		
-		when(dao.checkIdempotency( any(UUID.class) )).thenReturn(setupResult);
+		when(dao.checkIdempotency( any(UUID.class), anyString() )).thenReturn(setupResult);
 		result = service.createTransaction(request);
-		verify(dao).checkIdempotency(any(UUID.class));
+		verify(dao).checkIdempotency(any(UUID.class), anyString());
 
 		assertEquals(setupResult.getTransactionUuid(), result.getTransactions().get(0).getTransactionUuid());
-		assertEquals(TransactionResponse.ALREADY_PRESENT, result.getStatus());
+		assertEquals(TransactionResponse.SUCCESS, result.getStatus());
 	}
 	
 	@Test
@@ -63,7 +64,7 @@ class UnitTransactionServiceTest_createTransaction {
 		setupResult.setTransactionUuid(UUID.randomUUID());
 		TransactionResponse result;
 		
-		when(dao.checkIdempotency( any(UUID.class) )).thenReturn(null);
+		when(dao.checkIdempotency( any(UUID.class), anyString() )).thenReturn(null);
 		when(dao.selectBalanceForUpdate(any(String.class))).thenReturn(10000L);
 		doNothing().when(dao).upsertBalance(isA(String.class), isA(Long.class));
 		doNothing().when(dao).insertTransaction(isA(TransactionResource.class));
@@ -82,11 +83,12 @@ class UnitTransactionServiceTest_createTransaction {
 		assertEquals(TransactionResource.NORMAL, result.getTransactions().get(0).getTransactionTypeCode());
 
 	}
+	
 	@Test
 	public void testCreateTransaction_upsertFails() {
 		TransactionRequest request = setup_request();
 		
-		when(dao.checkIdempotency( any(UUID.class) )).thenReturn(null);		
+		when(dao.checkIdempotency( any(UUID.class), anyString() )).thenReturn(null);		
 		when(dao.selectBalanceForUpdate(any(String.class))).thenReturn(10000L);
 		doThrow(new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,"test throw."))
 				.when(dao).upsertBalance(isA(String.class), isA(Long.class));
@@ -99,7 +101,7 @@ class UnitTransactionServiceTest_createTransaction {
 	public void testCreateTransaction_insertFails() {
 		TransactionRequest request = setup_request();
 		
-		when(dao.checkIdempotency( any(UUID.class) )).thenReturn(null);		
+		when(dao.checkIdempotency( any(UUID.class), anyString() )).thenReturn(null);		
 		when(dao.selectBalanceForUpdate(any(String.class))).thenReturn(10000L);
 		doNothing().when(dao).upsertBalance(isA(String.class), isA(Long.class));
 		doThrow(new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,"test throw."))
@@ -112,8 +114,9 @@ class UnitTransactionServiceTest_createTransaction {
 	@Test void testCreateTransaction_NSF() {
 		TransactionRequest request = setup_request();
 		request.setAuthorizeAgainstBalance(true);
+		request.setTransactionAmount(-2000L);
 		
-		when(dao.checkIdempotency( any(UUID.class) )).thenReturn(null);
+		when(dao.checkIdempotency( any(UUID.class), anyString() )).thenReturn(null);
 		when(dao.selectBalanceForUpdate(any(String.class))).thenReturn(1000L);
 		
 		TransactionResponse result = service.createTransaction(request);
@@ -127,6 +130,27 @@ class UnitTransactionServiceTest_createTransaction {
 		assertNull(result.getTransactions().get(0).getReservationUuid());
 		assertEquals(1000L, result.getTransactions().get(0).getRunningBalanceAmount());
 		assertEquals(TransactionResource.REJECTED_TRANSACTION, result.getTransactions().get(0).getTransactionTypeCode());
+	}
+	
+	@Test void testCreateTransaction_ingnoreNSF() {
+		TransactionRequest request = setup_request();
+		request.setAuthorizeAgainstBalance(false);
+		request.setTransactionAmount(-2000L);
+
+		when(dao.checkIdempotency( any(UUID.class), anyString() )).thenReturn(null);
+		when(dao.selectBalanceForUpdate(any(String.class))).thenReturn(1000L);
+		
+		TransactionResponse result = service.createTransaction(request);
+		assertEquals(TransactionResponse.SUCCESS, result.getStatus());
+		assertEquals(request.getAccountNumber(), result.getTransactions().get(0).getAccountNumber());
+		assertEquals(request.getDebitCardNumber(), result.getTransactions().get(0).getDebitCardNumber());
+		assertEquals(request.getRequestUuid(), result.getTransactions().get(0).getRequestUuid());
+		assertEquals(request.getTransactionAmount(), result.getTransactions().get(0).getTransactionAmount());
+		assertEquals(request.getTransactionMetaDataJson(), result.getTransactions().get(0).getTransactionMetaDataJson());
+		assertEquals(request.getAccountNumber(), result.getTransactions().get(0).getAccountNumber());
+		assertNull(result.getTransactions().get(0).getReservationUuid());
+		assertEquals(-1000L, result.getTransactions().get(0).getRunningBalanceAmount());
+		assertEquals(TransactionResource.NORMAL, result.getTransactions().get(0).getTransactionTypeCode());
 	}
 	
 	private TransactionRequest setup_request() {
