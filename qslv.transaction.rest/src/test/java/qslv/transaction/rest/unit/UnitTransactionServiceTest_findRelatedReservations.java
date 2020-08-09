@@ -24,19 +24,19 @@ import org.springframework.web.server.ResponseStatusException;
 import qslv.transaction.request.TransactionSearchRequest;
 import qslv.transaction.resource.TransactionResource;
 import qslv.transaction.response.TransactionSearchResponse;
-import qslv.transaction.rest.TransactionDAO;
+import qslv.transaction.rest.JdbcDao;
 import qslv.transaction.rest.TransactionService;
 
 @ExtendWith(MockitoExtension.class)
 @RunWith(JUnitPlatform.class)
 class UnitTransactionServiceTest_findRelatedReservations {
 	@Mock 
-	TransactionDAO dao;
+	JdbcDao dao;
 	TransactionService service = new TransactionService();
 	
 	@BeforeEach
 	public void setup() {
-		service.setDao(dao);
+		service.setJdbcDao(dao);
 	}
 
 	//-------------------------------------

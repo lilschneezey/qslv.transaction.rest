@@ -47,6 +47,8 @@ class UnitTransactionControllerTest_postReservationCommit {
 		headers.put(TraceableRequest.AIT_ID, "12345");
 		headers.put(TraceableRequest.BUSINESS_TAXONOMY_ID, "7483495");
 		headers.put(TraceableRequest.CORRELATION_ID, "273849273498273498");
+		headers.put(TraceableRequest.ACCEPT_VERSION, "1_0");
+
 
 		CommitReservationRequest request = new CommitReservationRequest();
 		request.setRequestUuid(UUID.randomUUID());
@@ -92,6 +94,7 @@ class UnitTransactionControllerTest_postReservationCommit {
 		headers.put(TraceableRequest.AIT_ID, "12345");
 		headers.put(TraceableRequest.BUSINESS_TAXONOMY_ID, "7483495");
 		headers.put(TraceableRequest.CORRELATION_ID, "273849273498273498");
+		headers.put(TraceableRequest.ACCEPT_VERSION, "1_0");
 
 		CommitReservationRequest request = new CommitReservationRequest();
 		request.setRequestUuid(UUID.randomUUID());
@@ -138,6 +141,13 @@ class UnitTransactionControllerTest_postReservationCommit {
 
 		// --- add CORRELATION_ID
 		headers.put(TraceableRequest.CORRELATION_ID, "273849273498273498");
+		ex = assertThrows(ResponseStatusException.class, () -> {
+			controller.postCommitReservation(headers, request);
+		});
+		assertTrue (ex.getStatus() == HttpStatus.BAD_REQUEST);
+
+		// --- add CORRELATION_ID
+		headers.put(TraceableRequest.ACCEPT_VERSION, "1_0");
 		ex = assertThrows(ResponseStatusException.class, () -> {
 			controller.postCommitReservation(headers, request);
 		});

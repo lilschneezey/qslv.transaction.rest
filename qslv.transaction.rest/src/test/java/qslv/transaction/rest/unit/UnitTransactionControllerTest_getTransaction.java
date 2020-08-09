@@ -46,6 +46,7 @@ class UnitTransactionControllerTest_getTransaction {
 		headers.put(TraceableRequest.AIT_ID, "12345");
 		headers.put(TraceableRequest.BUSINESS_TAXONOMY_ID, "7483495");
 		headers.put(TraceableRequest.CORRELATION_ID, "273849273498273498");
+		headers.put(TraceableRequest.ACCEPT_VERSION, "1_0");
 
 		TransactionSearchRequest request = new TransactionSearchRequest();
 		request.setTransactionUuid(UUID.randomUUID());
@@ -69,6 +70,7 @@ class UnitTransactionControllerTest_getTransaction {
 		headers.put(TraceableRequest.AIT_ID, "12345");
 		headers.put(TraceableRequest.BUSINESS_TAXONOMY_ID, "7483495");
 		headers.put(TraceableRequest.CORRELATION_ID, "273849273498273498");
+		headers.put(TraceableRequest.ACCEPT_VERSION, "1_0");
 
 		TransactionSearchRequest request = new TransactionSearchRequest();
 		request.setTransactionUuid(UUID.randomUUID());
@@ -82,7 +84,25 @@ class UnitTransactionControllerTest_getTransaction {
 		assert (ex.getStatus() == HttpStatus.NOT_ACCEPTABLE);
 
 	}
+	
+	@Test
+	void testgetTransaction_invalidVersion() {
+		HashMap<String, String> headers = new HashMap<String, String>();
+		headers.put(TraceableRequest.AIT_ID, "12345");
+		headers.put(TraceableRequest.BUSINESS_TAXONOMY_ID, "7483495");
+		headers.put(TraceableRequest.CORRELATION_ID, "273849273498273498");
+		headers.put(TraceableRequest.ACCEPT_VERSION, "XXX");
 
+		TransactionSearchRequest request = new TransactionSearchRequest();
+		request.setTransactionUuid(UUID.randomUUID());
+
+		ResponseStatusException ex = assertThrows(ResponseStatusException.class, () -> {
+			controller.getTransaction(headers, request);
+		});
+		assert (ex.getStatus() == HttpStatus.BAD_REQUEST);
+
+	}
+	
 	@Test
 	void testgetTransaction_validateInput() {
 		HashMap<String, String> headers = new HashMap<String, String>();
@@ -111,6 +131,13 @@ class UnitTransactionControllerTest_getTransaction {
 
 		// --- add CORRELATION_ID
 		headers.put(TraceableRequest.CORRELATION_ID, "273849273498273498");
+		ex = assertThrows(ResponseStatusException.class, () -> {
+			controller.getTransaction(headers, request);
+		});
+		assert (ex.getStatus() == HttpStatus.BAD_REQUEST);
+
+		// --- add CORRELATION_ID
+		headers.put(TraceableRequest.ACCEPT_VERSION, "1_0");
 		ex = assertThrows(ResponseStatusException.class, () -> {
 			controller.getTransaction(headers, request);
 		});

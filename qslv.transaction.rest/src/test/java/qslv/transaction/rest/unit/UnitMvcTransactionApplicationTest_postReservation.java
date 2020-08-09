@@ -1,8 +1,7 @@
 package qslv.transaction.rest.unit;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -36,7 +35,7 @@ import com.fasterxml.jackson.databind.SerializationFeature;
 import qslv.transaction.request.TransactionRequest;
 import qslv.transaction.resource.TransactionResource;
 import qslv.transaction.response.ReservationResponse;
-import qslv.transaction.rest.TransactionDAO;
+import qslv.transaction.rest.JdbcDao;
 import qslv.common.TimedResponse;
 import qslv.common.TraceableRequest;
 
@@ -51,13 +50,13 @@ class UnitMvcTransactionApplicationTest_postReservation {
 	@Autowired
 	private MockMvc mockMvc;
 	@Autowired
-	TransactionDAO dao;
+	JdbcDao jdbcDao;
 	@Mock
 	JdbcTemplate template;
 
 	@BeforeEach
 	void setup() {
-		dao.setJdbcTemplate(template);
+		jdbcDao.setJdbcTemplate(template);
 	}
 	
 	@Test
@@ -76,7 +75,8 @@ class UnitMvcTransactionApplicationTest_postReservation {
 		UUID test_uuid = UUID.randomUUID();
 		
 		//Mock database idempotency
-		when(template.query( any(String.class), ArgumentMatchers.<RowMapper<TransactionResource>>any(), any(UUID.class) ) )
+		when(template.query( eq(JdbcDao.idempotentQuery_sql), 
+				ArgumentMatchers.<RowMapper<TransactionResource>>any(), any(UUID.class), anyString() ) )
 		.thenReturn(new ArrayList<TransactionResource>());
 
 		//Mock database select balance
@@ -98,7 +98,8 @@ class UnitMvcTransactionApplicationTest_postReservation {
 				.content(requestJson)
 				.header(TraceableRequest.AIT_ID, "")
 				.header(TraceableRequest.BUSINESS_TAXONOMY_ID, "")
-				.header(TraceableRequest.CORRELATION_ID, "") )
+				.header(TraceableRequest.CORRELATION_ID, "")
+				.header(TraceableRequest.ACCEPT_VERSION, "1_0") )
 				.andExpect(status().isCreated())
 				.andReturn()
 				.getResponse()
@@ -137,7 +138,8 @@ class UnitMvcTransactionApplicationTest_postReservation {
 		UUID test_uuid = UUID.randomUUID();
 		
 		//Mock database idempotency
-		when(template.query( any(String.class), ArgumentMatchers.<RowMapper<TransactionResource>>any(), any(UUID.class) ) )
+		when(template.query( eq(JdbcDao.idempotentQuery_sql), 
+				ArgumentMatchers.<RowMapper<TransactionResource>>any(), any(UUID.class), anyString() ) )
 		.thenReturn(new ArrayList<TransactionResource>());
 
 		//Mock database select balance
@@ -159,7 +161,8 @@ class UnitMvcTransactionApplicationTest_postReservation {
 				.content(requestJson)
 				.header(TraceableRequest.AIT_ID, "")
 				.header(TraceableRequest.BUSINESS_TAXONOMY_ID, "")
-				.header(TraceableRequest.CORRELATION_ID, "") )
+				.header(TraceableRequest.CORRELATION_ID, "")
+				.header(TraceableRequest.ACCEPT_VERSION, "1_0") )
 				.andExpect(status().isCreated())
 				.andReturn()
 				.getResponse()
@@ -207,8 +210,9 @@ class UnitMvcTransactionApplicationTest_postReservation {
 		resource.setTransactionTypeCode(TransactionResource.RESERVATION);
 		
 		//Mock database idempotency
-		when(template.query( any(String.class), ArgumentMatchers.<RowMapper<TransactionResource>>any(), any(UUID.class) ) )
-		.thenReturn(Collections.singletonList(resource));
+		when(template.query( eq(JdbcDao.idempotentQuery_sql), 
+				ArgumentMatchers.<RowMapper<TransactionResource>>any(), any(UUID.class), anyString() ) )
+			.thenReturn(Collections.singletonList(resource));
 		
 		// post transaction
 		String stringResult = this.mockMvc.perform(post("/Reservation")
@@ -216,6 +220,7 @@ class UnitMvcTransactionApplicationTest_postReservation {
 				.content(requestJson)
 				.header(TraceableRequest.AIT_ID, "")
 				.header(TraceableRequest.BUSINESS_TAXONOMY_ID, "")
+				.header(TraceableRequest.ACCEPT_VERSION, "1_0")
 				.header(TraceableRequest.CORRELATION_ID, "") )
 				.andExpect(status().isCreated())
 				.andReturn()
@@ -224,7 +229,7 @@ class UnitMvcTransactionApplicationTest_postReservation {
 
 		TimedResponse<ReservationResponse> response = mapper.readValue(stringResult, responseReference);
 		
-		assert(response.getPayload().getStatus() == ReservationResponse.ALREADY_PRESENT);
+		assert(response.getPayload().getStatus() == ReservationResponse.SUCCESS);
 		assertNotNull(response.getPayload());
 
 		assert(response.getPayload().getResource().getAccountNumber().equals(resource.getAccountNumber()));

@@ -16,7 +16,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 
-import qslv.transaction.request.TransactionRequest;
+import qslv.transaction.request.ReservationRequest;
 import qslv.transaction.resource.TransactionResource;
 import qslv.transaction.response.ReservationResponse;
 import qslv.transaction.rest.ConfigProperties;
@@ -47,8 +47,9 @@ class UnitTransactionControllerTest_postReservation {
 		headers.put(TraceableRequest.AIT_ID, "12345");
 		headers.put(TraceableRequest.BUSINESS_TAXONOMY_ID, "7483495");
 		headers.put(TraceableRequest.CORRELATION_ID, "273849273498273498");
+		headers.put(TraceableRequest.ACCEPT_VERSION, "1_0");
 
-		TransactionRequest request = new TransactionRequest();
+		ReservationRequest request = new ReservationRequest();
 		request.setAccountNumber("237489237492");
 		request.setDebitCardNumber("8398345345");
 		request.setRequestUuid(UUID.randomUUID());
@@ -67,10 +68,10 @@ class UnitTransactionControllerTest_postReservation {
 		setupResource.setTransactionMetaDataJson("{etc, etc}");
 		setupResource.setTransactionTypeCode(TransactionResource.RESERVATION);
 
-		when(service.createReservation(any(TransactionRequest.class)))
+		when(service.createReservation(any(ReservationRequest.class)))
 				.thenReturn(new ReservationResponse(ReservationResponse.SUCCESS, setupResource));
 		TimedResponse<ReservationResponse> response = controller.postReservation(headers, request);
-		verify(service).createReservation(any(TransactionRequest.class));
+		verify(service).createReservation(any(ReservationRequest.class));
 		assertTrue (response.getPayload().getStatus() == ReservationResponse.SUCCESS);
 
 		assertTrue (response.getPayload().getResource().getTransactionUuid().equals(setupResource.getTransactionUuid()));
@@ -93,15 +94,16 @@ class UnitTransactionControllerTest_postReservation {
 		headers.put(TraceableRequest.AIT_ID, "12345");
 		headers.put(TraceableRequest.BUSINESS_TAXONOMY_ID, "7483495");
 		headers.put(TraceableRequest.CORRELATION_ID, "273849273498273498");
+		headers.put(TraceableRequest.ACCEPT_VERSION, "1_0");
 
-		TransactionRequest request = new TransactionRequest();
+		ReservationRequest request = new ReservationRequest();
 		request.setAccountNumber("237489237492");
 		request.setDebitCardNumber("8398345345");
 		request.setRequestUuid(UUID.randomUUID());
 		request.setTransactionAmount(-2323L);
 		request.setTransactionMetaDataJson("{blahblah}");
 
-		when(service.createReservation(any(TransactionRequest.class)))
+		when(service.createReservation(any(ReservationRequest.class)))
 			.thenThrow(new ResponseStatusException(HttpStatus.NOT_ACCEPTABLE, "garbage"));
 		
 		ResponseStatusException ex = assertThrows(ResponseStatusException.class, () -> {
@@ -110,11 +112,32 @@ class UnitTransactionControllerTest_postReservation {
 		assertTrue( ex.getStatus() == HttpStatus.NOT_ACCEPTABLE);
 		
 	}
+	
+	@Test
+	void testPostTransaction_invalidVersion() {
+		HashMap<String, String> headers = new HashMap<String, String>();
+		headers.put(TraceableRequest.AIT_ID, "12345");
+		headers.put(TraceableRequest.BUSINESS_TAXONOMY_ID, "7483495");
+		headers.put(TraceableRequest.CORRELATION_ID, "273849273498273498");
+		headers.put(TraceableRequest.ACCEPT_VERSION, "XXX");
 
+		ReservationRequest request = new ReservationRequest();
+		request.setAccountNumber("237489237492");
+		request.setDebitCardNumber("8398345345");
+		request.setRequestUuid(UUID.randomUUID());
+		request.setTransactionAmount(-2323L);
+		request.setTransactionMetaDataJson("{blahblah}");
+
+		ResponseStatusException ex = assertThrows(ResponseStatusException.class, () -> {
+			controller.postReservation(headers, request);
+		});
+		assert (ex.getStatus() == HttpStatus.BAD_REQUEST);
+	}
+	
 	@Test
 	void testPostReservation_validateInput() {
 		HashMap<String, String> headers = new HashMap<String, String>();
-		TransactionRequest request = new TransactionRequest();
+		ReservationRequest request = new ReservationRequest();
 		TransactionResource setupResource = new TransactionResource();
 		TimedResponse<ReservationResponse> response = null;
 
@@ -145,6 +168,13 @@ class UnitTransactionControllerTest_postReservation {
 		});
 		assertTrue (ex.getStatus() == HttpStatus.BAD_REQUEST);
 
+		// --- add CORRELATION_ID
+		headers.put(TraceableRequest.ACCEPT_VERSION, "1_0");
+		ex = assertThrows(ResponseStatusException.class, () -> {
+			controller.postReservation(headers, request);
+		});
+		assertTrue (ex.getStatus() == HttpStatus.BAD_REQUEST);
+		
 		// --- add REQUEST UUID
 		request.setRequestUuid(UUID.randomUUID());
 		request.setTransactionAmount(0L);
@@ -169,10 +199,10 @@ class UnitTransactionControllerTest_postReservation {
 
 		// --- add AMOUNT
 		request.setTransactionAmount(-2323);
-		when(service.createReservation(any(TransactionRequest.class)))
+		when(service.createReservation(any(ReservationRequest.class)))
 				.thenReturn(new ReservationResponse(ReservationResponse.SUCCESS, setupResource));
 		response = controller.postReservation(headers, request);
-		verify(service).createReservation(any(TransactionRequest.class));
+		verify(service).createReservation(any(ReservationRequest.class));
 		assertTrue (response.getPayload().getStatus() == ReservationResponse.SUCCESS);
 	}
 

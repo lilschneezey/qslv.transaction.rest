@@ -1,8 +1,7 @@
 package qslv.transaction.rest.unit;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.isA;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
@@ -23,18 +22,18 @@ import org.springframework.web.server.ResponseStatusException;
 import qslv.transaction.request.CommitReservationRequest;
 import qslv.transaction.resource.TransactionResource;
 import qslv.transaction.response.CommitReservationResponse;
-import qslv.transaction.rest.TransactionDAO;
+import qslv.transaction.rest.JdbcDao;
 import qslv.transaction.rest.TransactionService;
 
 @ExtendWith(MockitoExtension.class)
 class UnitTransactionServiceTest_commitReservation {
 	@Mock 
-	TransactionDAO dao;
+	JdbcDao dao;
 	TransactionService service = new TransactionService();
 	
 	@BeforeEach
 	public void setup() {
-		service.setDao(dao);
+		service.setJdbcDao(dao);
 	}
 
 	//-------------------------------------
@@ -47,6 +46,7 @@ class UnitTransactionServiceTest_commitReservation {
 		request.setReservationUuid(UUID.randomUUID());
 		request.setTransactionAmount(-2323);
 		request.setTransactionMetaDataJson("{\"value\":23498234}");
+		request.setAccountNumber("7328429347");
 		
 		TransactionResource setupResponse = new TransactionResource();
 		setupResponse.setTransactionUuid(UUID.randomUUID());
@@ -59,10 +59,10 @@ class UnitTransactionServiceTest_commitReservation {
 		setupResponse.setTransactionMetaDataJson("{etc, etc}");
 		setupResponse.setTransactionTypeCode(TransactionResource.RESERVATION);
 			
-		when(dao.checkIdempotency( any(UUID.class) )).thenReturn(setupResponse);
+		when(dao.checkIdempotency( any(UUID.class), anyString() )).thenReturn(setupResponse);
 		CommitReservationResponse result = service.commitReservation(request);
-		verify(dao).checkIdempotency(any(UUID.class));
-		assert(result.getStatus()==CommitReservationResponse.ALREADY_PRESENT);
+		verify(dao).checkIdempotency(any(UUID.class), anyString());
+		assert(result.getStatus()==CommitReservationResponse.SUCCESS);
 		assert(result.getResource().getTransactionUuid().equals(setupResponse.getTransactionUuid()));
 	}
 	
@@ -73,6 +73,7 @@ class UnitTransactionServiceTest_commitReservation {
 		request.setReservationUuid(UUID.randomUUID());
 		request.setTransactionAmount(-2323);
 		request.setTransactionMetaDataJson("{\"value\":23498234}");
+		request.setAccountNumber("7328429347");
 		
 		TransactionResource setupReservation = new TransactionResource();
 		setupReservation.setTransactionUuid(UUID.randomUUID());
@@ -85,18 +86,18 @@ class UnitTransactionServiceTest_commitReservation {
 		setupReservation.setTransactionMetaDataJson("{etc, etc}");
 		setupReservation.setTransactionTypeCode(TransactionResource.RESERVATION);
 			
-		when(dao.checkIdempotency( any(UUID.class) )).thenReturn(null);
+		when(dao.checkIdempotency( any(UUID.class), anyString() )).thenReturn(null);
 		when(dao.findReservation(any(UUID.class))).thenReturn(setupReservation);
 		doNothing().when(dao).verifyReservationOpen(isA(UUID.class));
 		when(dao.selectBalanceForUpdate(any(String.class))).thenReturn(11111L);
-		doNothing().when(dao).insertTransaction(isA(TransactionResource.class));
+		doNothing().when(dao).insertCommitOrCancel(isA(TransactionResource.class));
 		
 		CommitReservationResponse result = service.commitReservation(request);
-		verify(dao).checkIdempotency(any(UUID.class));
+		verify(dao).checkIdempotency(any(UUID.class), anyString());
 		verify(dao).findReservation(any(UUID.class));
 		verify(dao).verifyReservationOpen(any(UUID.class));
 		verify(dao).selectBalanceForUpdate(any(String.class));
-		verify(dao).insertTransaction(any(TransactionResource.class));
+		verify(dao).insertCommitOrCancel(any(TransactionResource.class));
 		
 		assert(result.getStatus()==CommitReservationResponse.SUCCESS);
 		assert(result.getResource().getAccountNumber().equals(setupReservation.getAccountNumber()));
@@ -116,6 +117,7 @@ class UnitTransactionServiceTest_commitReservation {
 		request.setReservationUuid(UUID.randomUUID());
 		request.setTransactionAmount(-3333L);
 		request.setTransactionMetaDataJson("{\"value\":23498234}");
+		request.setAccountNumber("7328429347");
 		
 		TransactionResource setupReservation = new TransactionResource();
 		setupReservation.setTransactionUuid(UUID.randomUUID());
@@ -128,18 +130,18 @@ class UnitTransactionServiceTest_commitReservation {
 		setupReservation.setTransactionMetaDataJson("{etc, etc}");
 		setupReservation.setTransactionTypeCode(TransactionResource.RESERVATION);
 			
-		when(dao.checkIdempotency( any(UUID.class) )).thenReturn(null);
+		when(dao.checkIdempotency( any(UUID.class) , anyString())).thenReturn(null);
 		when(dao.findReservation(any(UUID.class))).thenReturn(setupReservation);
 		doNothing().when(dao).verifyReservationOpen(isA(UUID.class));
 		when(dao.selectBalanceForUpdate(any(String.class))).thenReturn(11111L);
-		doNothing().when(dao).insertTransaction(isA(TransactionResource.class));
+		doNothing().when(dao).insertCommitOrCancel(isA(TransactionResource.class));
 		
 		CommitReservationResponse result = service.commitReservation(request);
-		verify(dao).checkIdempotency(any(UUID.class));
+		verify(dao).checkIdempotency(any(UUID.class), anyString());
 		verify(dao).findReservation(any(UUID.class));
 		verify(dao).verifyReservationOpen(any(UUID.class));
 		verify(dao).selectBalanceForUpdate(any(String.class));
-		verify(dao).insertTransaction(any(TransactionResource.class));
+		verify(dao).insertCommitOrCancel(any(TransactionResource.class));
 		
 		assert(result.getStatus()==CommitReservationResponse.SUCCESS);
 		assert(result.getResource().getAccountNumber().equals(setupReservation.getAccountNumber()));
@@ -158,6 +160,7 @@ class UnitTransactionServiceTest_commitReservation {
 		request.setReservationUuid(UUID.randomUUID());
 		request.setTransactionAmount(-3333L);
 		request.setTransactionMetaDataJson("{\"value\":23498234}");
+		request.setAccountNumber("7328429347");
 		
 		TransactionResource setupReservation = new TransactionResource();
 		setupReservation.setTransactionUuid(UUID.randomUUID());
@@ -170,11 +173,11 @@ class UnitTransactionServiceTest_commitReservation {
 		setupReservation.setTransactionMetaDataJson("{etc, etc}");
 		setupReservation.setTransactionTypeCode(TransactionResource.RESERVATION);
 			
-		when(dao.checkIdempotency( any(UUID.class) )).thenReturn(null);
+		when(dao.checkIdempotency( any(UUID.class), anyString() )).thenReturn(null);
 		when(dao.findReservation(any(UUID.class))).thenThrow(new ResponseStatusException(HttpStatus.NOT_FOUND,"string") );
 		
 		ResponseStatusException ex = assertThrows(ResponseStatusException.class, ()-> { service.commitReservation(request); });
-		verify(dao).checkIdempotency(any(UUID.class));
+		verify(dao).checkIdempotency(any(UUID.class), anyString());
 		assert(ex.getStatus() == HttpStatus.NOT_FOUND);
 	}
 	@Test
@@ -184,6 +187,7 @@ class UnitTransactionServiceTest_commitReservation {
 		request.setReservationUuid(UUID.randomUUID());
 		request.setTransactionAmount(-3333L);
 		request.setTransactionMetaDataJson("{\"value\":23498234}");
+		request.setAccountNumber("7328429347");
 		
 		TransactionResource setupReservation = new TransactionResource();
 		setupReservation.setTransactionUuid(UUID.randomUUID());
@@ -196,13 +200,13 @@ class UnitTransactionServiceTest_commitReservation {
 		setupReservation.setTransactionMetaDataJson("{etc, etc}");
 		setupReservation.setTransactionTypeCode(TransactionResource.RESERVATION);
 			
-		when(dao.checkIdempotency( any(UUID.class) )).thenReturn(null);
+		when(dao.checkIdempotency( any(UUID.class), anyString() )).thenReturn(null);
 		when(dao.findReservation(any(UUID.class))).thenReturn(setupReservation);
 		doThrow(new ResponseStatusException(HttpStatus.CONFLICT,"string"))
 			.when(dao).verifyReservationOpen(isA(UUID.class));
 		
 		ResponseStatusException ex = assertThrows(ResponseStatusException.class, ()-> { service.commitReservation(request); });
-		verify(dao).checkIdempotency(any(UUID.class));
+		verify(dao).checkIdempotency(any(UUID.class), anyString());
 		verify(dao).findReservation(any(UUID.class));
 		assert(ex.getStatus() == HttpStatus.CONFLICT);
 	}
@@ -213,6 +217,7 @@ class UnitTransactionServiceTest_commitReservation {
 		request.setReservationUuid(UUID.randomUUID());
 		request.setTransactionAmount(-3333L);
 		request.setTransactionMetaDataJson("{\"value\":23498234}");
+		request.setAccountNumber("7328429347");
 		
 		TransactionResource setupReservation = new TransactionResource();
 		setupReservation.setTransactionUuid(UUID.randomUUID());
@@ -225,14 +230,14 @@ class UnitTransactionServiceTest_commitReservation {
 		setupReservation.setTransactionMetaDataJson("{etc, etc}");
 		setupReservation.setTransactionTypeCode(TransactionResource.RESERVATION);
 			
-		when(dao.checkIdempotency( any(UUID.class) )).thenReturn(null);
+		when(dao.checkIdempotency( any(UUID.class), anyString() )).thenReturn(null);
 		when(dao.findReservation(any(UUID.class))).thenReturn(setupReservation);
 		doNothing().when(dao).verifyReservationOpen(isA(UUID.class));
 		when(dao.selectBalanceForUpdate(any(String.class)))
 			.thenThrow(new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,"string"));
 
 		ResponseStatusException ex = assertThrows(ResponseStatusException.class, ()-> { service.commitReservation(request); });
-		verify(dao).checkIdempotency(any(UUID.class));
+		verify(dao).checkIdempotency(any(UUID.class), anyString());
 		verify(dao).findReservation(any(UUID.class));
 		verify(dao).verifyReservationOpen(any(UUID.class));
 		assert(ex.getStatus() == HttpStatus.INTERNAL_SERVER_ERROR);
@@ -244,6 +249,7 @@ class UnitTransactionServiceTest_commitReservation {
 		request.setReservationUuid(UUID.randomUUID());
 		request.setTransactionAmount(-3333L);
 		request.setTransactionMetaDataJson("{\"value\":23498234}");
+		request.setAccountNumber("7328429347");
 		
 		TransactionResource setupReservation = new TransactionResource();
 		setupReservation.setTransactionUuid(UUID.randomUUID());
@@ -256,15 +262,15 @@ class UnitTransactionServiceTest_commitReservation {
 		setupReservation.setTransactionMetaDataJson("{etc, etc}");
 		setupReservation.setTransactionTypeCode(TransactionResource.RESERVATION);
 			
-		when(dao.checkIdempotency( any(UUID.class) )).thenReturn(null);
+		when(dao.checkIdempotency( any(UUID.class), anyString() )).thenReturn(null);
 		when(dao.findReservation(any(UUID.class))).thenReturn(setupReservation);
 		doNothing().when(dao).verifyReservationOpen(isA(UUID.class));
 		when(dao.selectBalanceForUpdate(any(String.class))).thenReturn(11111L);
 		doThrow(new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,"string"))
-			.when(dao).insertTransaction(isA(TransactionResource.class));
+			.when(dao).insertCommitOrCancel(isA(TransactionResource.class));
 
 		ResponseStatusException ex = assertThrows(ResponseStatusException.class, ()-> { service.commitReservation(request); });
-		verify(dao).checkIdempotency(any(UUID.class));
+		verify(dao).checkIdempotency(any(UUID.class), anyString());
 		verify(dao).findReservation(any(UUID.class));
 		verify(dao).verifyReservationOpen(any(UUID.class));
 		verify(dao).selectBalanceForUpdate(any(String.class));

@@ -26,8 +26,8 @@ import qslv.transaction.resource.TransactionResource;
 import qslv.util.ExternalResourceSLI;
 
 @Repository
-public class TransactionDAO {
-	private static final Logger log = LoggerFactory.getLogger(TransactionDAO.class);
+public class JdbcDao {
+	private static final Logger log = LoggerFactory.getLogger(JdbcDao.class);
 
 	@Autowired
 	private JdbcTemplate jdbcTemplate;
@@ -36,9 +36,6 @@ public class TransactionDAO {
 		this.jdbcTemplate = template;
 	}
 
-	public JdbcTemplate getJdbcTemplate() {
-		return jdbcTemplate;
-	}
 
 	/**
 	 * selectBalanceForUpdate Lookup the running balance from the account_balance
@@ -52,7 +49,7 @@ public class TransactionDAO {
 	@Transactional
 	@ExternalResourceSLI(value="jdbc::selectBalanceForUpdate", ait = "88888", remoteFailures= {DataAccessException.class})
 	public long selectBalanceForUpdate(final String account_id) {
-		log.debug("selectBalanceForUpdate ENTRY");
+		log.trace("selectBalanceForUpdate ENTRY");
 
 		long runningBalance_am = 0;
 		try {
@@ -78,7 +75,7 @@ public class TransactionDAO {
 	@Transactional
 	public void insertTransaction(TransactionResource resource) {
 
-		log.debug("insertTransaction ENTRY");
+		log.trace("insertTransaction ENTRY");
 
 		// Insert Transaction
 		KeyHolder keyHolder = new GeneratedKeyHolder();
@@ -124,9 +121,9 @@ public class TransactionDAO {
 
 	@ExternalResourceSLI(value="jdbc::insertReservation", ait = "88888", remoteFailures= {DataAccessException.class})
 	@Transactional
-	public void insertReservation(TransactionResource resource) {
+	public void insertCommitOrCancel(TransactionResource resource) {
 
-		log.debug("insertTransaction ENTRY");
+		log.trace("insertCommitOrCancel ENTRY");
 
 		// Insert Transaction
 		KeyHolder keyHolder = new GeneratedKeyHolder();
@@ -149,10 +146,10 @@ public class TransactionDAO {
 
 		try {
 			resource.setTransactionUuid( (UUID) keyHolder.getKeys().get("transaction_uuid") );
-			log.debug("insertTransaction UUID {}", resource.getTransactionUuid().toString());
+			log.debug("insertCommitOrCancel UUID {}", resource.getTransactionUuid().toString());
 		}
 		catch (Exception e) {
-			log.error("putTransaction, transaction_uuid not returned from insert statement. %s",
+			log.error("insertCommitOrCancel, transaction_uuid not returned from insert statement. %s",
 					insert_transaction_sql);
 			throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
 					String.format("transaction_uuid not returned."));
@@ -170,7 +167,7 @@ public class TransactionDAO {
 	@ExternalResourceSLI(value="jdbc::upsertBalance", ait = "88888", remoteFailures= {DataAccessException.class})
 	@Transactional
 	public void upsertBalance(final String account_id, final long runningBalance_am) {
-		log.debug("upsertBalance ENTRY");
+		log.trace("upsertBalance ENTRY");
 
 		// Update Balance
 		int rowsUpdated = jdbcTemplate.update(upsert_balance_sql, account_id, runningBalance_am);
@@ -181,7 +178,7 @@ public class TransactionDAO {
 			throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
 					String.format("%d (!= 1) account_balance rows updated.", rowsUpdated));
 		}
-		log.debug("upsertBalance EXIT");
+		log.trace("upsertBalance EXIT");
 	}
 
 	/**
@@ -193,19 +190,19 @@ public class TransactionDAO {
 	public final static String findReservationFinal_sql = "SELECT COUNT(*) from transaction where transactiontype_cd in ('RC','RX') and reservation_uuid=?;";
 	@ExternalResourceSLI(value="jdbc::verifyReservationOpen", ait = "88888", remoteFailures= {DataAccessException.class})
 	public void verifyReservationOpen(UUID reservation_id) {
-		log.debug("verifyReservationOpen ENTRY");
+		log.trace("verifyReservationOpen ENTRY");
 
 		long rescount = jdbcTemplate.queryForObject(findReservationFinal_sql, new Object[] { reservation_id },
 				Long.class);
 		if (rescount > 0) {
 			log.error(
-					"finalizeReservation, reservation_uuid (%s) has already been finalized. "
+					"verifyReservationOpen, reservation_uuid (%s) has already been finalized. "
 							+ "Another Commit or Cancel transaction with the same reservation_uuid is present.",
 					reservation_id);
 			throw new ResponseStatusException(HttpStatus.CONFLICT,
 					String.format("reservation_uuid (%s) has already been finalized.", reservation_id));
 		}
-		log.debug("verifyReservationOpen EXIT - Verified Still Open");
+		log.trace("verifyReservationOpen EXIT - Verified Still Open");
 	}
 
 	/**
@@ -219,7 +216,7 @@ public class TransactionDAO {
 	@ExternalResourceSLI(value="jdbc::findReservation", ait = "88888", remoteFailures= {DataAccessException.class})
 	public TransactionResource findReservation(UUID reservation_id) {
 
-		log.debug("findReservation ENTRY");
+		log.trace("findReservation ENTRY");
 		List<TransactionResource> reservations = jdbcTemplate.query(findReservation_sql,
 				new RowMapper<TransactionResource>() {
 					public TransactionResource mapRow(ResultSet rs, int rowNum) throws SQLException {
@@ -235,7 +232,7 @@ public class TransactionDAO {
 			throw new ResponseStatusException(HttpStatus.NOT_FOUND,
 					String.format("reservation_uuid (%s) not found.", reservation_id));
 		}
-		log.debug("findReservation EXIT - Reservation Found");
+		log.trace("findReservation EXIT - Reservation Found");
 		return reservations.get(0);
 
 	}
@@ -253,7 +250,7 @@ public class TransactionDAO {
 	
 	@ExternalResourceSLI(value="jdbc::findRelatedToReservation", ait = "88888", remoteFailures= {DataAccessException.class})
 	public List<TransactionResource> findRelatedToReservation(UUID reservation_id) {
-		log.trace("findReservation ENTRY");
+		log.trace("findRelatedToReservation ENTRY");
 		
 		List<TransactionResource> reservations = jdbcTemplate.query(selectRelatedToReservation_sql,
 				new RowMapper<TransactionResource>() {
@@ -273,12 +270,12 @@ public class TransactionDAO {
 					}
 				}, reservation_id);
 		if (reservations.size() != 1) {
-			log.error("findReservation, reservation_uuid ({}) not found.", reservation_id);
+			log.error("findRelatedToReservation, reservation_uuid ({}) not found.", reservation_id);
 			throw new ResponseStatusException(HttpStatus.NOT_FOUND,
 					String.format("reservation_uuid (%s) not found.", reservation_id));
 		}
 		
-		log.trace("findReservation EXIT - Reservation Found");
+		log.trace("findRelatedToReservation EXIT - Reservation Found");
 		return reservations;
 	}
 
@@ -295,7 +292,7 @@ public class TransactionDAO {
 	@ExternalResourceSLI(value="jdbc::findTransaction", ait = "88888", remoteFailures= {DataAccessException.class})
 	public TransactionResource findTransaction(UUID transaction_uuid) {
 
-		log.debug("findTransaction ENTRY");
+		log.trace("findTransaction ENTRY");
 		List<TransactionResource> resources = jdbcTemplate.query(selectTransaction_sql,
 				new RowMapper<TransactionResource>() {
 					public TransactionResource mapRow(ResultSet rs, int rowNum) throws SQLException {
@@ -318,9 +315,9 @@ public class TransactionDAO {
 			throw new ResponseStatusException(HttpStatus.NOT_FOUND,
 					String.format("transaction_uuid (%s) not found.", transaction_uuid));
 		}
-		log.debug("findTransaction EXIT");
+		
+		log.trace("findTransaction EXIT");
 		return resources.get(0);
-
 	}
 	/**
 	 * checkIdempotency
@@ -330,10 +327,10 @@ public class TransactionDAO {
 	 */
 	public final static String idempotentQuery_sql = "SELECT transaction_uuid, request_uuid, account_id, debitcard_id, "
 			+ "transaction_am, transactiontype_cd, runningbalance_am, reservation_uuid, transactionmetadata_json, "
-			+ "insert_tsz from transaction where request_uuid = ?;";
+			+ "insert_tsz FROM transaction WHERE request_uuid = ? AND account_id = ? order by insert_tsz asc;";
 	@ExternalResourceSLI(value="jdbc::checkIdempotency", ait = "88888", remoteFailures= {DataAccessException.class})
-	public TransactionResource checkIdempotency(UUID request_uuid) {
-		log.debug("checkIdempotency ENTRY");
+	public TransactionResource checkIdempotency(UUID request_uuid, String accountNumber) {
+		log.trace("checkIdempotency ENTRY");
 
 		List<TransactionResource> transactions = jdbcTemplate.query(idempotentQuery_sql,
 				new RowMapper<TransactionResource>() {
@@ -351,11 +348,35 @@ public class TransactionDAO {
 						res.setInsertTimestamp(rs.getTimestamp(10));
 						return res;
 					}
-				}, request_uuid);
+				}, request_uuid, accountNumber);
 
 		log.debug("checkIdempotency EXIT - previous request count = {}", transactions.size());
-		return (transactions.size() > 0) ? transactions.get(0) : null;
+		return transactions.size() > 0 ? transactions.get(0) : null;
 	}
 
+	@ExternalResourceSLI(value="jdbc::checkMultiIdempotency", ait = "88888", remoteFailures= {DataAccessException.class})
+	public List<TransactionResource> checkMultiIdempotency(UUID request_uuid, String accountNumber) {
+		log.trace("checkIdempotency ENTRY");
 
+		List<TransactionResource> transactions = jdbcTemplate.query(idempotentQuery_sql,
+				new RowMapper<TransactionResource>() {
+					public TransactionResource mapRow(ResultSet rs, int rowNum) throws SQLException {
+						TransactionResource res = new TransactionResource();
+						res.setTransactionUuid(rs.getObject(1, UUID.class));
+						res.setRequestUuid(rs.getObject(2, UUID.class));
+						res.setAccountNumber(rs.getString(3));
+						res.setDebitCardNumber(rs.getString(4));
+						res.setTransactionAmount(rs.getLong(5));
+						res.setTransactionTypeCode(rs.getString(6));
+						res.setRunningBalanceAmount(rs.getLong(7));
+						res.setReservationUuid(rs.getObject(8, UUID.class));
+						res.setTransactionMetaDataJson(rs.getString(9));
+						res.setInsertTimestamp(rs.getTimestamp(10));
+						return res;
+					}
+				}, request_uuid, accountNumber);
+
+		log.debug("checkIdempotency EXIT - previous request count = {}", transactions.size());
+		return transactions;
+	}
 }
